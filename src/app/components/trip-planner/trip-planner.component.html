@@ -1,0 +1,367 @@
+<!-- Hero Header -->
+<div class="hero-section">
+  <div class="hero-content">
+    <div class="hero-icon"><mat-icon>flight_takeoff</mat-icon></div>
+    <h1 class="hero-title">AI Tour Planner</h1>
+    <p class="hero-subtitle">Discover amazing destinations within your budget — flights, hotels, food &amp; activities all planned for you!</p>
+    <div class="hero-badges">
+      <span class="badge"><mat-icon>check_circle</mat-icon> Easy Visa</span>
+      <span class="badge"><mat-icon>attach_money</mat-icon> Budget Optimized</span>
+      <span class="badge"><mat-icon>public</mat-icon> 35+ Destinations</span>
+      <span class="badge"><mat-icon>currency_exchange</mat-icon> Local Currency</span>
+    </div>
+  </div>
+</div>
+
+<!-- Search Form -->
+<div class="search-section">
+  <mat-card class="search-card" [@fadeInUp]>
+    <mat-card-header>
+      <mat-icon mat-card-avatar>search</mat-icon>
+      <mat-card-title>Plan Your Perfect Trip</mat-card-title>
+      <mat-card-subtitle>Fill in your details and we'll find the best destinations for you</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <form [formGroup]="tripForm" (ngSubmit)="onSearch()">
+        <div class="form-grid">
+          <!-- Departure City with Autocomplete -->
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Departure City</mat-label>
+            <mat-icon matPrefix>location_on</mat-icon>
+            <input matInput formControlName="startPlace"
+                   placeholder="e.g. Mumbai, Delhi, Bangalore, Chennai"
+                   [matAutocomplete]="cityAuto"
+                   autocomplete="off">
+            <mat-autocomplete #cityAuto="matAutocomplete">
+              <mat-option *ngFor="let city of citySuggestions" [value]="city.displayName" (onSelectionChange)="onCitySelected(city)">
+                <mat-icon style="font-size:16px;height:16px;width:16px;vertical-align:middle;margin-right:6px">location_city</mat-icon>
+                {{ city.displayName }}
+              </mat-option>
+            </mat-autocomplete>
+            <mat-error *ngIf="tripForm.get('startPlace')?.hasError('required')">Departure city is required</mat-error>
+          </mat-form-field>
+
+          <!-- Budget -->
+          <mat-form-field appearance="outline">
+            <mat-label>Total Budget (INR)</mat-label>
+            <mat-icon matPrefix>currency_rupee</mat-icon>
+            <input matInput type="number" formControlName="budget" placeholder="e.g. 150000" min="10000">
+            <mat-hint>Per person including flights</mat-hint>
+            <mat-error *ngIf="tripForm.get('budget')?.hasError('min')">Minimum budget is ₹10,000</mat-error>
+          </mat-form-field>
+
+          <!-- Trip Type -->
+          <mat-form-field appearance="outline">
+            <mat-label>Trip Type</mat-label>
+            <mat-icon matPrefix>public</mat-icon>
+            <mat-select formControlName="tripType">
+              <mat-option value="both">&#x1F30D; Both (Domestic + International)</mat-option>
+              <mat-option value="international">&#x2708;&#xFE0F; International Only</mat-option>
+              <mat-option value="domestic">&#x1F3E0; Domestic Only</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Start Date -->
+          <mat-form-field appearance="outline">
+            <mat-label>Departure Date</mat-label>
+            <mat-icon matPrefix>calendar_today</mat-icon>
+            <input matInput [matDatepicker]="startPicker" formControlName="startDate" [min]="minDate">
+            <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
+            <mat-datepicker #startPicker></mat-datepicker>
+          </mat-form-field>
+
+          <!-- End Date -->
+          <mat-form-field appearance="outline">
+            <mat-label>Return Date</mat-label>
+            <mat-icon matPrefix>event</mat-icon>
+            <input matInput [matDatepicker]="endPicker" formControlName="endDate" [min]="tripForm.get('startDate')?.value || minDate">
+            <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+            <mat-datepicker #endPicker></mat-datepicker>
+          </mat-form-field>
+        </div>
+
+        <div class="duration-preview" *ngIf="tripDuration > 0">
+          <mat-icon>schedule</mat-icon>
+          <span>Trip Duration: <strong>{{ tripDuration }} day{{ tripDuration > 1 ? 's' : '' }}</strong></span>
+        </div>
+
+        <div class="form-actions">
+          <button mat-raised-button color="primary" type="submit"
+                  [disabled]="tripForm.invalid || loading" class="search-btn">
+            <mat-icon *ngIf="!loading">flight_takeoff</mat-icon>
+            <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
+            <span>{{ loading ? 'Finding Best Plans...' : 'Find My Perfect Trip' }}</span>
+          </button>
+          <button mat-stroked-button type="button" (click)="resetForm()" *ngIf="results">
+            <mat-icon>refresh</mat-icon> New Search
+          </button>
+        </div>
+      </form>
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<!-- Loading State -->
+<div class="loading-overlay" *ngIf="loading">
+  <div class="loading-content">
+    <mat-spinner diameter="60" color="accent"></mat-spinner>
+    <h3>Searching the world for you...</h3>
+    <p>Analyzing flights, hotels, food costs and visa requirements</p>
+  </div>
+</div>
+
+<!-- Error State -->
+<div class="error-section" *ngIf="error">
+  <mat-card class="error-card">
+    <mat-icon color="warn" style="font-size:48px;height:48px;width:48px">error_outline</mat-icon>
+    <p>{{ error }}</p>
+    <button mat-button color="primary" (click)="error = null">Dismiss</button>
+  </mat-card>
+</div>
+
+<!-- Results Section -->
+<div class="results-section" *ngIf="results && !loading">
+  <div class="results-header">
+    <h2><mat-icon>explore</mat-icon> {{ results.message }}</h2>
+    <div class="results-meta">
+      <mat-chip-set>
+        <mat-chip color="primary" highlighted>
+          <mat-icon matChipAvatar>schedule</mat-icon> {{ results.tripDuration }} days
+        </mat-chip>
+        <mat-chip color="accent" highlighted>
+          <mat-icon matChipAvatar>currency_rupee</mat-icon> Budget: ₹{{ results.budget | number:'1.0-0' }}
+        </mat-chip>
+        <mat-chip>
+          <mat-icon matChipAvatar>place</mat-icon> {{ totalCount }} options found
+        </mat-chip>
+      </mat-chip-set>
+    </div>
+  </div>
+
+  <div class="no-results" *ngIf="results.plans.length === 0">
+    <mat-icon>sentiment_dissatisfied</mat-icon>
+    <h3>No destinations found within your budget</h3>
+    <p>Try increasing your budget or extending your travel dates.</p>
+    <div class="suggestions">
+      <p><strong>Quick suggestions:</strong></p>
+      <ul>
+        <li>₹50,000+ unlocks budget-friendly Asia destinations</li>
+        <li>₹1,00,000+ includes Europe, Middle East, and more</li>
+        <li>₹2,00,000+ opens up luxury options worldwide</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="plans-grid" [@listAnimation]="paginatedPlans.length">
+    <app-plan-card
+      *ngFor="let plan of paginatedPlans; let i = index"
+      [plan]="plan" [rank]="(currentPage - 1) * pageSize + i + 1"
+      (viewDetails)="onViewDetails($event)">
+    </app-plan-card>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" *ngIf="totalPages > 1">
+    <button mat-icon-button [disabled]="currentPage === 1" (click)="changePage(currentPage - 1)">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <button mat-button *ngFor="let p of pageNumbers"
+      [class.active-page]="p === currentPage"
+      (click)="changePage(p)">{{ p }}</button>
+    <button mat-icon-button [disabled]="currentPage === totalPages" (click)="changePage(currentPage + 1)">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+    <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+    <select class="page-size-select" [value]="pageSize" (change)="changePageSize(+$any($event.target).value)">
+      <option *ngFor="let s of pageSizeOptions" [value]="s">{{ s }} per page</option>
+    </select>
+  </div>
+</div>
+
+<!-- Plan Detail Dialog -->
+<div class="detail-overlay" *ngIf="selectedPlan" (click)="closePlanDetail()">
+  <div class="detail-modal" (click)="$event.stopPropagation()">
+    <button class="close-btn" mat-icon-button (click)="closePlanDetail()">
+      <mat-icon>close</mat-icon>
+    </button>
+
+    <div class="detail-hero" [style.backgroundImage]="'url(' + selectedPlan.imageUrl + ')'">
+      <div class="detail-hero-overlay">
+        <div class="detail-hero-content">
+          <div class="destination-flag">
+            <img [src]="'https://flagcdn.com/48x36/' + selectedPlan.countryCode.toLowerCase() + '.png'"
+                 [alt]="selectedPlan.country" (error)="onFlagError($event)">
+          </div>
+          <h2>{{ selectedPlan.destination }}</h2>
+          <div class="detail-stats">
+            <span><mat-icon>schedule</mat-icon> {{ selectedPlan.duration }} days</span>
+            <span><mat-icon>currency_rupee</mat-icon> ₹{{ selectedPlan.totalCost | number:'1.0-0' }}</span>
+            <span><mat-icon>star</mat-icon> {{ selectedPlan.rating }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-tabs">
+        <button [class.active]="detailTab === 'overview'" (click)="detailTab = 'overview'">Overview</button>
+        <button [class.active]="detailTab === 'itinerary'" (click)="detailTab = 'itinerary'">Day-by-Day</button>
+        <button [class.active]="detailTab === 'budget'" (click)="detailTab = 'budget'">Budget</button>
+        <button [class.active]="detailTab === 'gallery'" (click)="detailTab = 'gallery'">Gallery</button>
+      </div>
+
+      <!-- Overview Tab -->
+      <div *ngIf="detailTab === 'overview'" class="tab-content">
+        <div class="info-section">
+          <mat-icon>description</mat-icon>
+          <div><h4>About {{ selectedPlan.destination }}</h4><p>{{ selectedPlan.description }}</p></div>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-item">
+            <mat-icon>card_travel</mat-icon>
+            <div>
+              <span class="label">Visa</span>
+              <span class="value">{{ selectedPlan.visaType }}</span>
+              <small>{{ selectedPlan.visaInfo }}</small>
+            </div>
+          </div>
+          <div class="info-item">
+            <mat-icon>wb_sunny</mat-icon>
+            <div><span class="label">Weather</span><span class="value">{{ selectedPlan.weather }}</span></div>
+          </div>
+          <div class="info-item">
+            <mat-icon>calendar_month</mat-icon>
+            <div><span class="label">Best Time</span><span class="value">{{ selectedPlan.bestTimeToVisit }}</span></div>
+          </div>
+          <div class="info-item">
+            <mat-icon>translate</mat-icon>
+            <div><span class="label">Language</span><span class="value">{{ selectedPlan.language }}</span></div>
+          </div>
+          <div class="info-item">
+            <mat-icon>flight</mat-icon>
+            <div><span class="label">Flight Duration</span><span class="value">{{ selectedPlan.flightDuration }}</span></div>
+          </div>
+          <div class="info-item">
+            <mat-icon>hotel</mat-icon>
+            <div><span class="label">Recommended Stay</span><span class="value">{{ selectedPlan.recommendedStay }}</span></div>
+          </div>
+        </div>
+
+        <div class="attractions-section">
+          <h4><mat-icon>place</mat-icon> Top Attractions</h4>
+          <div class="attraction-list">
+            <span class="attraction-tag" *ngFor="let attr of selectedPlan.topAttractions">{{ attr }}</span>
+          </div>
+        </div>
+
+        <div class="tip-section">
+          <mat-icon>lightbulb</mat-icon>
+          <div><h4>Travel Tip</h4><p>{{ selectedPlan.travelTip }}</p></div>
+        </div>
+      </div>
+
+      <!-- Itinerary Tab -->
+      <div *ngIf="detailTab === 'itinerary'" class="tab-content">
+        <div class="day-plan" *ngFor="let day of selectedPlan.dailyPlans">
+          <div class="day-header">
+            <div class="day-number">Day {{ day.day }}</div>
+            <div class="day-info">
+              <h4>{{ day.title }}</h4>
+              <span class="day-date">{{ day.date | date:'EEE, MMM d' }}</span>
+            </div>
+            <div class="day-budget">₹{{ day.dailyBudget | number:'1.0-0' }}</div>
+          </div>
+          <div class="activities">
+            <div class="activity" *ngFor="let act of day.activities">
+              <div class="act-time">{{ act.time }}</div>
+              <div class="act-line"></div>
+              <div class="act-content">
+                <div class="act-header">
+                  <mat-icon>{{ act.icon }}</mat-icon>
+                  <strong>{{ act.activity }}</strong>
+                  <span class="act-cost" *ngIf="act.estimatedCost > 0">₹{{ act.estimatedCost }}</span>
+                </div>
+                <p>{{ act.description }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Budget Tab -->
+      <div *ngIf="detailTab === 'budget'" class="tab-content">
+        <div class="budget-overview">
+          <div class="total-budget-display">
+            <h3>Total Trip Cost</h3>
+            <div class="total-amount">₹{{ selectedPlan.totalCost | number:'1.0-0' }}</div>
+            <div class="savings">
+              <mat-icon>savings</mat-icon>
+              Save <strong>₹{{ selectedPlan.savingsFromBudget | number:'1.0-0' }}</strong> from your budget!
+            </div>
+          </div>
+          <div class="budget-items">
+            <div class="budget-item flights">
+              <div class="budget-item-header">
+                <mat-icon>flight</mat-icon>
+                <span>Flights (Round Trip)</span>
+                <strong>₹{{ selectedPlan.budgetBreakdown.flights | number:'1.0-0' }}</strong>
+              </div>
+              <div class="budget-bar"><div class="budget-fill" [style.width]="getBudgetPercent(selectedPlan.budgetBreakdown.flights) + '%'"></div></div>
+            </div>
+            <div class="budget-item hotel">
+              <div class="budget-item-header">
+                <mat-icon>hotel</mat-icon>
+                <span>Accommodation ({{ selectedPlan.duration }} nights)</span>
+                <strong>₹{{ selectedPlan.budgetBreakdown.accommodation | number:'1.0-0' }}</strong>
+              </div>
+              <div class="budget-bar"><div class="budget-fill" [style.width]="getBudgetPercent(selectedPlan.budgetBreakdown.accommodation) + '%'"></div></div>
+            </div>
+            <div class="budget-item food">
+              <div class="budget-item-header">
+                <mat-icon>restaurant</mat-icon>
+                <span>Food &amp; Dining</span>
+                <strong>₹{{ selectedPlan.budgetBreakdown.food | number:'1.0-0' }}</strong>
+              </div>
+              <div class="budget-bar"><div class="budget-fill" [style.width]="getBudgetPercent(selectedPlan.budgetBreakdown.food) + '%'"></div></div>
+            </div>
+            <div class="budget-item activities">
+              <div class="budget-item-header">
+                <mat-icon>local_activity</mat-icon>
+                <span>Activities &amp; Sightseeing</span>
+                <strong>₹{{ selectedPlan.budgetBreakdown.activities | number:'1.0-0' }}</strong>
+              </div>
+              <div class="budget-bar"><div class="budget-fill" [style.width]="getBudgetPercent(selectedPlan.budgetBreakdown.activities) + '%'"></div></div>
+            </div>
+            <div class="budget-item misc">
+              <div class="budget-item-header">
+                <mat-icon>more_horiz</mat-icon>
+                <span>Miscellaneous</span>
+                <strong>₹{{ selectedPlan.budgetBreakdown.miscellaneous | number:'1.0-0' }}</strong>
+              </div>
+              <div class="budget-bar"><div class="budget-fill" [style.width]="getBudgetPercent(selectedPlan.budgetBreakdown.miscellaneous) + '%'"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gallery Tab -->
+      <div *ngIf="detailTab === 'gallery'" class="tab-content">
+        <div class="gallery-grid">
+          <img [src]="selectedPlan.imageUrl" [alt]="selectedPlan.destination" class="gallery-main" (error)="onImgError($event)">
+          <img *ngFor="let img of selectedPlan.galleryImages" [src]="img" [alt]="selectedPlan.destination"
+               class="gallery-thumb" (error)="onImgError($event)">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="app-footer">
+  <div class="footer-content">
+    <mat-icon>flight_takeoff</mat-icon>
+    <span>AI Tour Planner — Affordable Adventures Worldwide</span>
+    <span class="footer-note">All prices are estimated averages. Actual costs may vary.</span>
+  </div>
+</footer>
