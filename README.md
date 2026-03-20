@@ -1,59 +1,105 @@
-# AITourPlannerFrontend
+# AI Tour Planner — Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.2.
+An Angular 21 single-page application that lets Indian travellers discover international trip itineraries within their INR budget, with server-side pagination, autocomplete restricted to Indian cities, and a detailed day-by-day itinerary view.
 
-## Development server
+## Tech Stack
 
-To start a local development server, run:
+- **Framework:** Angular 21 (standalone components)
+- **UI Library:** Angular Material 21
+- **Charts:** Chart.js + ng2-charts
+- **Animations:** Angular Animations
+- **City Search:** [Photon API](https://photon.komoot.io) (filtered to India)
+- **Change Detection:** OnPush
+
+## Project Structure
+
+```
+src/app/
+├── components/
+│   ├── trip-planner/
+│   │   ├── trip-planner.component.ts    # Main search + results + pagination
+│   │   └── trip-planner.component.html  # Template
+│   └── plan-card/
+│       ├── plan-card.component.ts       # Individual destination card
+│       └── plan-card.component.html
+├── services/
+│   ├── itinerary.service.ts             # Backend API calls (no-cache headers)
+│   └── geocoding.service.ts             # City autocomplete (India-only)
+└── models/
+    └── trip.models.ts                   # TypeScript interfaces
+```
+
+## Features
+
+- **India-only departure city** — Autocomplete powered by Photon API, filtered to Indian cities only. Non-Indian cities yield no suggestions.
+- **INR budget** — Budget input and all displayed costs are in Indian Rupees (₹).
+- **Server-side pagination** — Up to 50 results returned, displayed 6/9/12 per page (configurable). Page and page size are sent to the backend on every request.
+- **No API caching** — Every search sends fresh `Cache-Control: no-cache` headers.
+- **Destination cards** — Show total cost, budget breakdown (flights, hotel, food), visa type, rating, highlights, and flight duration.
+- **Detail modal** — Four tabs: Overview (description, visa, weather, language, attractions, travel tip), Day-by-Day itinerary, Budget breakdown with visual bars, and Gallery.
+- **Animations** — Fade-in and staggered list animations on results.
+
+## Getting Started
+
+### Prerequisites
+
+- [Node.js 20+](https://nodejs.org/)
+- [Angular CLI 21](https://angular.dev/tools/cli)
 
 ```bash
+npm install -g @angular/cli
+```
+
+### Install & Run
+
+```bash
+cd AI-Tour-Planner-Frontend
+npm install
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+App runs at `http://localhost:4200`.
 
-## Code scaffolding
+> The backend must be running on `http://localhost:5011` before searching.
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
+### Build
 
 ```bash
 ng build
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Output is in `dist/`.
 
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+### Run Tests
 
 ```bash
-ng test
+ng test   # unit tests (Vitest)
+ng e2e    # end-to-end tests
 ```
 
-## Running end-to-end tests
+## Configuration
 
-For end-to-end (e2e) testing, run:
+### Backend URL
 
-```bash
-ng e2e
+Update the API base URL in `src/app/services/itinerary.service.ts`:
+
+```typescript
+private apiUrl = 'http://localhost:5011/api';
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+### INR Exchange Rate
 
-## Additional Resources
+The exchange rate is managed on the backend (`InrPerUsd = 83.0` in `ItineraryPlannerService.cs`). The frontend displays whatever values the backend returns — no conversion is done on the client.
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+### Pagination
+
+Default page size is `9`. Supported values: `6`, `9`, `12` — selectable via the dropdown in the pagination bar.
+
+## Search Rules
+
+| Field | Description |
+|---|---|
+| Departure city | Indian cities only — enforced by autocomplete + backend validation |
+| Budget | Minimum ₹10,000, entered in INR |
+| Trip type | International / Both (`Domestic` returns no results — no Indian domestic destinations in the dataset) |
+| Dates | Departure and return date are both required |
